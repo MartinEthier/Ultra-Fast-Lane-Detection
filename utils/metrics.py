@@ -2,10 +2,12 @@ import numpy as np
 import torch
 import time,pdb
 
+
 def converter(data):
     if isinstance(data,torch.Tensor):
         data = data.cpu().data.numpy().flatten()
     return data.flatten()
+
 def fast_hist(label_pred, label_true,num_classes):
     #pdb.set_trace()
     hist = np.bincount(num_classes * label_true.astype(int) + label_pred, minlength=num_classes ** 2)
@@ -36,6 +38,8 @@ class Metric_mIoU():
         return acc
     def get(self):
         return self.get_miou()
+
+
 class MultiLabelAcc():
     def __init__(self):
         self.cnt = 0
@@ -51,6 +55,8 @@ class MultiLabelAcc():
         return self.correct * 1.0 / self.cnt
     def get(self):
         return self.get_acc()
+
+
 class AccTopk():
     def __init__(self,background_classes,k):
         self.background_classes = background_classes
@@ -70,6 +76,25 @@ class AccTopk():
     def get(self):
         return self.top5_correct * 1.0 / self.cnt
 
+
+class ClassAcc():
+    def __init__(self):
+        self.cnt = 0
+        self.num_true = 0
+        self.num_false = 0
+    def reset(self):
+        self.cnt = 0
+        self.num_true = 0
+        self.num_false = 0
+    def update(self, predict, target):
+        # ('cls_out', 'cls_label') both (batch_size, num_lanes)
+        tp_tn = torch.sum(predict == target)
+        total = torch.numel(target)
+        self.num_true += tp_tn
+        self.cnt += total
+        self.num_false += total - tp_tn
+    def get(self):
+        return self.num_true / (self.num_true + self.num_false)
 
 
 def update_metrics(metric_dict, pair_data):

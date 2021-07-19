@@ -15,11 +15,11 @@ from PIL import Image
 torch.backends.cudnn.benchmark = True
 
 # From cuLANE, Change this line if you are using TuSimple
-cls_num_per_lane = 18
+num_anchors = 18
 griding_num = 200
 backbone =18
 
-net = parsingNet(pretrained = False,backbone='18', cls_dim = (griding_num+1,cls_num_per_lane,4),
+net = parsingNet(pretrained = False,backbone='18', det_dim = (griding_num+1,num_anchors,4),
                 use_aux=False)
 
 # Change test_model where your model stored.

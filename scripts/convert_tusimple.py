@@ -20,6 +20,7 @@ def calc_k(line):
     rad = np.arctan(p[0])
     
     return rad
+
 def draw(im,line,idx,show = False):
     '''
     Generate the segmentation label according to json annotation
@@ -35,6 +36,7 @@ def draw(im,line,idx,show = False):
     for i in range(len(line_x)-1):
         cv2.line(im,pt0,(int(line_x[i+1]),int(line_y[i+1])),(idx,),thickness = 16)
         pt0 = (int(line_x[i+1]),int(line_y[i+1]))
+
 def get_tusimple_list(root, label_list):
     '''
     Get all the files' names from the json annotation
@@ -47,6 +49,7 @@ def get_tusimple_list(root, label_list):
     names = [l['raw_file'] for l in label_json_all]
     h_samples = [np.array(l['h_samples']) for l in label_json_all]
     lanes = [np.array(l['lanes']) for l in label_json_all]
+    classes = [l['classes'].split() for l in label_json_all]
 
     line_txt = []
     for i in range(len(lanes)):
@@ -61,9 +64,9 @@ def get_tusimple_list(root, label_list):
             line_txt_i.append(line_txt_tmp)
         line_txt.append(line_txt_i)
 
-    return names,line_txt
+    return names, line_txt, classes
 
-def generate_segmentation_and_train_list(root, line_txt, names):
+def generate_segmentation_and_train_list(root, line_txt, names, classes):
     """
     The lane annotations of the Tusimple dataset is not strictly in order, so we need to find out the correct lane order for segmentation.
     We use the same definition as CULane, in which the four lanes from left to right are represented as 1,2,3,4 in segentation label respectively.
@@ -87,50 +90,60 @@ def generate_segmentation_and_train_list(root, line_txt, names):
         k_pos.sort()
 
         label_path = names[i][:-3]+'png'
-        label = np.zeros((720,1280),dtype=np.uint8)
-        bin_label = [0,0,0,0]
+        label = np.zeros((720, 1280), dtype=np.uint8)
+        bin_label = [0, 0, 0, 0]
+        class_label = ['0', '0', '0', '0']
         if len(k_neg) == 1:                                           # for only one lane in the left
             which_lane = np.where(ks == k_neg[0])[0][0]
+            class_label[1] = classes[i][which_lane]
             draw(label,lines[which_lane],2)
             bin_label[1] = 1
         elif len(k_neg) == 2:                                         # for two lanes in the left
             which_lane = np.where(ks == k_neg[1])[0][0]
+            class_label[0] = classes[i][which_lane]
             draw(label,lines[which_lane],1)
             which_lane = np.where(ks == k_neg[0])[0][0]
+            class_label[1] = classes[i][which_lane]
             draw(label,lines[which_lane],2)
             bin_label[0] = 1
             bin_label[1] = 1
         elif len(k_neg) > 2:                                           # for more than two lanes in the left, 
             which_lane = np.where(ks == k_neg[1])[0][0]                # we only choose the two lanes that are closest to the center
+            class_label[0] = classes[i][which_lane]
             draw(label,lines[which_lane],1)
             which_lane = np.where(ks == k_neg[0])[0][0]
+            class_label[1] = classes[i][which_lane]
             draw(label,lines[which_lane],2)
             bin_label[0] = 1
             bin_label[1] = 1
 
         if len(k_pos) == 1:                                            # For the lanes in the right, the same logical is adopted.
             which_lane = np.where(ks == k_pos[0])[0][0]
+            class_label[2] = classes[i][which_lane]
             draw(label,lines[which_lane],3)
             bin_label[2] = 1
         elif len(k_pos) == 2:
             which_lane = np.where(ks == k_pos[1])[0][0]
+            class_label[2] = classes[i][which_lane]
             draw(label,lines[which_lane],3)
             which_lane = np.where(ks == k_pos[0])[0][0]
+            class_label[3] = classes[i][which_lane]
             draw(label,lines[which_lane],4)
             bin_label[2] = 1
             bin_label[3] = 1
         elif len(k_pos) > 2:
             which_lane = np.where(ks == k_pos[-1])[0][0]
+            class_label[2] = classes[i][which_lane]
             draw(label,lines[which_lane],3)
             which_lane = np.where(ks == k_pos[-2])[0][0]
+            class_label[3] = classes[i][which_lane]
             draw(label,lines[which_lane],4)
             bin_label[2] = 1
             bin_label[3] = 1
 
-        cv2.imwrite(os.path.join(root,label_path),label)
+        cv2.imwrite(os.path.join(root, label_path), label)
 
-
-        train_gt_fp.write(names[i] + ' ' + label_path + ' '+' '.join(list(map(str,bin_label))) + '\n')
+        train_gt_fp.write(names[i] + ' ' + label_path + ' ' + ' '.join(list(map(str,bin_label))) + ' ' + ' '.join(class_label) + '\n')
     train_gt_fp.close()
 
 def get_args():
@@ -142,14 +155,21 @@ if __name__ == "__main__":
     args = get_args().parse_args()
 
     # training set
-    names,line_txt = get_tusimple_list(args.root,  ['label_data_0601.json','label_data_0531.json','label_data_0313.json'])
+    names, line_txt, classes = get_tusimple_list(
+        args.root,
+        [
+            'label_data_0601_withclasses.json',
+            'label_data_0531_withclasses.json',
+            'label_data_0313_withclasses.json'
+        ]
+    )
     # generate segmentation and training list for training
-    generate_segmentation_and_train_list(args.root, line_txt, names)
+    generate_segmentation_and_train_list(args.root, line_txt, names, classes)
 
     # testing set
-    names,line_txt = get_tusimple_list(args.root, ['test_tasks_0627.json'])
+    # names, line_txt = get_tusimple_list(args.root, ['test_tasks_0627.json'])
     # generate testing set for testing
-    with open(os.path.join(args.root,'test.txt'),'w') as fp:
-        for name in names:
-            fp.write(name + '\n')
+    # with open(os.path.join(args.root,'test.txt'),'w') as fp:
+    #     for name in names:
+    #         fp.write(name + '\n')
 

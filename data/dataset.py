@@ -35,10 +35,10 @@ class LaneTestDataset(torch.utils.data.Dataset):
         return len(self.list)
 
 
-class LaneClsDataset(torch.utils.data.Dataset):
+class LaneDataset(torch.utils.data.Dataset):
     def __init__(self, path, list_path, img_transform = None,target_transform = None,simu_transform = None, griding_num=50, load_name = False,
-                row_anchor = None,use_aux=False,segment_transform=None, num_lanes = 4):
-        super(LaneClsDataset, self).__init__()
+                row_anchor = None,use_aux=False,segment_transform=None, num_lanes = 4, num_classes=8):
+        super(LaneDataset, self).__init__()
         self.img_transform = img_transform
         self.target_transform = target_transform
         self.segment_transform = segment_transform
@@ -48,6 +48,7 @@ class LaneClsDataset(torch.utils.data.Dataset):
         self.load_name = load_name
         self.use_aux = use_aux
         self.num_lanes = num_lanes
+        self.num_classes = num_classes
 
         with open(list_path, 'r') as f:
             self.list = f.readlines()
@@ -68,17 +69,17 @@ class LaneClsDataset(torch.utils.data.Dataset):
 
         img_path = os.path.join(self.path, img_name)
         img = loader_func(img_path)
-    
+
+        # Get classification labels from list and convert
+        cls_label = np.array(l_info[-4:]).astype(int)
 
         if self.simu_transform is not None:
             img, label = self.simu_transform(img, label)
         lane_pts = self._get_index(label)
         # get the coordinates of lanes at row anchors
 
-
-
         w, h = img.size
-        cls_label = self._grid_pts(lane_pts, self.griding_num, w)
+        det_label = self._grid_pts(lane_pts, self.griding_num, w)
         # make the coordinates to classification label
         if self.use_aux:
             assert self.segment_transform is not None
@@ -88,10 +89,10 @@ class LaneClsDataset(torch.utils.data.Dataset):
             img = self.img_transform(img)
 
         if self.use_aux:
-            return img, cls_label, seg_label
+            return img, det_label, cls_label, seg_label
         if self.load_name:
-            return img, cls_label, img_name
-        return img, cls_label
+            return img, det_label, cls_label, img_name
+        return img, det_label, cls_label
 
     def __len__(self):
         return len(self.list)

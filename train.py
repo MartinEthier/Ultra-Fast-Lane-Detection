@@ -16,18 +16,19 @@ import time
 
 def inference(net, data_label, use_aux):
     if use_aux:
-        img, cls_label, seg_label = data_label
-        img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
-        cls_out, seg_out = net(img)
-        return {'cls_out': cls_out, 'cls_label': cls_label, 'seg_out':seg_out, 'seg_label': seg_label}
+        img, det_label, cls_label, seg_label = data_label
+        img, det_label, cls_label, seg_label = img.cuda(), det_label.long().cuda(), cls_label.long().cuda(), seg_label.long().cuda()
+        det_out, cls_out, seg_out = net(img)
+        return {'det_out': det_out, 'det_label': det_label, 'cls_out':cls_out, 'cls_label':cls_label, 'seg_out':seg_out, 'seg_label': seg_label}
     else:
-        img, cls_label = data_label
-        img, cls_label = img.cuda(), cls_label.long().cuda()
-        cls_out = net(img)
-        return {'cls_out': cls_out, 'cls_label': cls_label}
+        img, det_label, cls_label = data_label
+        img, det_label, cls_label = img.cuda(), det_label.long().cuda(), cls_label.long().cuda()
+        det_out, cls_out = net(img)
+        return {'det_out': det_out, 'det_label': det_label, 'cls_out':cls_out, 'cls_label':cls_label}
 
 
 def resolve_val_data(results, use_aux):
+    results['det_out'] = torch.argmax(results['det_out'], dim=1)
     results['cls_out'] = torch.argmax(results['cls_out'], dim=1)
     if use_aux:
         results['seg_out'] = torch.argmax(results['seg_out'], dim=1)
@@ -111,9 +112,15 @@ if __name__ == "__main__":
     assert cfg.backbone in ['18','34','50','101','152','50next','101next','50wide','101wide']
 
 
-    train_loader, cls_num_per_lane = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, cfg.dataset, cfg.use_aux, distributed, cfg.num_lanes)
+    train_loader, num_anchors = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, cfg.dataset, cfg.use_aux, distributed, cfg.num_lanes, cfg.num_classes)
 
-    net = parsingNet(pretrained = True, backbone=cfg.backbone,cls_dim = (cfg.griding_num+1,cls_num_per_lane, cfg.num_lanes),use_aux=cfg.use_aux).cuda()
+    net = parsingNet(
+        pretrained=True,
+        backbone=cfg.backbone,
+        det_dim=(cfg.griding_num+1, num_anchors, cfg.num_lanes),
+        cls_dim=(cfg.num_classes, cfg.num_lanes),
+        use_aux=cfg.use_aux
+    ).cuda()
 
     if distributed:
         net = torch.nn.parallel.DistributedDataParallel(net, device_ids = [args.local_rank])
@@ -150,5 +157,5 @@ if __name__ == "__main__":
 
         train(net, train_loader, loss_dict, optimizer, scheduler,logger, epoch, metric_dict, cfg.use_aux)
         
-        save_model(net, optimizer, epoch ,work_dir, distributed)
+        #save_model(net, optimizer, epoch ,work_dir, distributed)
     logger.close()

@@ -4,9 +4,9 @@ import numpy as np
 import torchvision.transforms as transforms
 import data.mytransforms as mytransforms
 from data.constant import tusimple_row_anchor, culane_row_anchor
-from data.dataset import LaneClsDataset, LaneTestDataset
+from data.dataset import LaneDataset, LaneTestDataset
 
-def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distributed, num_lanes):
+def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distributed, num_lanes, num_classes):
     target_transform = transforms.Compose([
         mytransforms.FreeScaleMask((288, 800)),
         mytransforms.MaskToTensor(),
@@ -26,24 +26,24 @@ def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distr
         mytransforms.RandomLROffsetLABEL(200)
     ])
     if dataset == 'CULane':
-        train_dataset = LaneClsDataset(data_root,
+        train_dataset = LaneDataset(data_root,
                                            os.path.join(data_root, 'list/train_gt.txt'),
                                            img_transform=img_transform, target_transform=target_transform,
                                            simu_transform = simu_transform,
                                            segment_transform=segment_transform, 
                                            row_anchor = culane_row_anchor,
-                                           griding_num=griding_num, use_aux=use_aux, num_lanes = num_lanes)
-        cls_num_per_lane = 18
+                                           griding_num=griding_num, use_aux=use_aux, num_lanes = num_lanes, num_classes=num_classes)
+        num_anchors = 18
 
     elif dataset == 'Tusimple':
-        train_dataset = LaneClsDataset(data_root,
+        train_dataset = LaneDataset(data_root,
                                            os.path.join(data_root, 'train_gt.txt'),
                                            img_transform=img_transform, target_transform=target_transform,
                                            simu_transform = simu_transform,
                                            griding_num=griding_num, 
                                            row_anchor = tusimple_row_anchor,
-                                           segment_transform=segment_transform,use_aux=use_aux, num_lanes = num_lanes)
-        cls_num_per_lane = 56
+                                           segment_transform=segment_transform,use_aux=use_aux, num_lanes = num_lanes, num_classes=num_classes)
+        num_anchors = 56
     else:
         raise NotImplementedError
 
@@ -54,7 +54,7 @@ def get_train_loader(batch_size, data_root, griding_num, dataset, use_aux, distr
 
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, sampler = sampler, num_workers=4)
 
-    return train_loader, cls_num_per_lane
+    return train_loader, num_anchors
 
 def get_test_loader(batch_size, data_root,dataset, distributed):
     img_transforms = transforms.Compose([
@@ -64,10 +64,10 @@ def get_test_loader(batch_size, data_root,dataset, distributed):
     ])
     if dataset == 'CULane':
         test_dataset = LaneTestDataset(data_root,os.path.join(data_root, 'list/test.txt'),img_transform = img_transforms)
-        cls_num_per_lane = 18
+        num_anchors = 18
     elif dataset == 'Tusimple':
         test_dataset = LaneTestDataset(data_root,os.path.join(data_root, 'test.txt'), img_transform = img_transforms)
-        cls_num_per_lane = 56
+        num_anchors = 56
 
     if distributed:
         sampler = SeqDistributedSampler(test_dataset, shuffle = False)

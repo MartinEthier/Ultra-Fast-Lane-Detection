@@ -1,10 +1,10 @@
 # DATA
 dataset='Tusimple'
-data_root = None
+data_root = '/home/martin/datasets/TuSimple'
 
 # TRAIN
 epoch = 100
-batch_size = 32
+batch_size = 30
 optimizer = 'Adam'    #['SGD','Adam']
 # learning_rate = 0.1
 learning_rate = 4e-4
@@ -21,15 +21,17 @@ warmup_iters = 100
 backbone = '18'
 griding_num = 100
 use_aux = True
+num_classes = 8
 
 # LOSS
 sim_loss_w = 1.0
 shp_loss_w = 0.0
+cls_loss_w = 0.1
 
 # EXP
 note = ''
 
-log_path = None
+log_path = '/home/martin/datasets/TuSimple/logs'
 
 # FINETUNE or RESUME MODEL PATH
 finetune = None

@@ -1,5 +1,5 @@
 from utils.loss import SoftmaxFocalLoss, ParsingRelationLoss, ParsingRelationDis
-from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU
+from utils.metrics import MultiLabelAcc, AccTopk, Metric_mIoU, ClassAcc
 from utils.dist_utils import DistSummaryWriter
 
 import torch
@@ -26,40 +26,37 @@ def get_scheduler(optimizer, cfg, iters_per_epoch):
     return scheduler
 
 def get_loss_dict(cfg):
-
     if cfg.use_aux:
         loss_dict = {
-            'name': ['cls_loss', 'relation_loss', 'aux_loss', 'relation_dis'],
-            'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), torch.nn.CrossEntropyLoss(), ParsingRelationDis()],
-            'weight': [1.0, cfg.sim_loss_w, 1.0, cfg.shp_loss_w],
-            'data_src': [('cls_out', 'cls_label'), ('cls_out',), ('seg_out', 'seg_label'), ('cls_out',)]
+            'name': ['det_loss', 'cls_loss', 'relation_loss', 'aux_loss', 'relation_dis'],
+            'op': [SoftmaxFocalLoss(2), torch.nn.CrossEntropyLoss(), ParsingRelationLoss(), torch.nn.CrossEntropyLoss(), ParsingRelationDis()],
+            'weight': [1.0, cfg.cls_loss_w, cfg.sim_loss_w, 1.0, cfg.shp_loss_w],
+            'data_src': [('det_out', 'det_label'), ('cls_out', 'cls_label'), ('det_out',), ('seg_out', 'seg_label'), ('det_out',)]
         }
     else:
         loss_dict = {
-            'name': ['cls_loss', 'relation_loss', 'relation_dis'],
-            'op': [SoftmaxFocalLoss(2), ParsingRelationLoss(), ParsingRelationDis()],
-            'weight': [1.0, cfg.sim_loss_w, cfg.shp_loss_w],
-            'data_src': [('cls_out', 'cls_label'), ('cls_out',), ('cls_out',)]
+            'name': ['det_loss', 'cls_loss', 'relation_loss', 'relation_dis'],
+            'op': [SoftmaxFocalLoss(2), torch.nn.CrossEntropyLoss(), ParsingRelationLoss(), ParsingRelationDis()],
+            'weight': [1.0, cfg.cls_loss_w, cfg.sim_loss_w, cfg.shp_loss_w],
+            'data_src': [('det_out', 'det_label'), ('cls_out', 'cls_label'), ('det_out',), ('det_out',)]
         }
 
     return loss_dict
 
 def get_metric_dict(cfg):
-
     if cfg.use_aux:
         metric_dict = {
-            'name': ['top1', 'top2', 'top3', 'iou'],
-            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3), Metric_mIoU(cfg.num_lanes+1)],
-            'data_src': [('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('seg_out', 'seg_label')]
+            'name': ['top1', 'top2', 'top3', 'class_acc', 'iou'],
+            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3), ClassAcc(), Metric_mIoU(cfg.num_lanes+1)],
+            'data_src': [('det_out', 'det_label'), ('det_out', 'det_label'), ('det_out', 'det_label'), ('cls_out', 'cls_label'), ('seg_out', 'seg_label')]
         }
     else:
         metric_dict = {
             'name': ['top1', 'top2', 'top3'],
-            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3)],
-            'data_src': [('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('cls_out', 'cls_label')]
+            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3), ClassAcc()],
+            'data_src': [('det_out', 'det_label'), ('det_out', 'det_label'), ('det_out', 'det_label'), ('cls_out', 'cls_label')]
         }
 
-    
     return metric_dict
 
 

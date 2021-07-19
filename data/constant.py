@@ -9,3 +9,14 @@ tusimple_row_anchor = [ 64,  68,  72,  76,  80,  84,  88,  92,  96, 100, 104, 10
             220, 224, 228, 232, 236, 240, 244, 248, 252, 256, 260, 264, 268,
             272, 276, 280, 284]
 culane_row_anchor = [121, 131, 141, 150, 160, 170, 180, 189, 199, 209, 219, 228, 238, 248, 258, 267, 277, 287]
+
+class_map = {
+    0: "no lane",
+    1: "continuous yellow",
+    2: "continuous white",
+    3: "dashed",
+    4: "double dashed",
+    5: "Botts' dots",
+    6: "double continuous yellow",
+    7: "unknown"
+}
